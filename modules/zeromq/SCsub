@@ -1,0 +1,13 @@
+# SCsub
+Import('env')
+
+cppzmq_location = "C:/Users/mrislam/Documents/Programming/cppzmq"
+env.Append(CPPPATH=cppzmq_location)
+env.Append(CPPPATH=cppzmq_location+"/libzmq-4.2.5/include")
+env.Append(LIBS=["libzmq-v141-mt-gd-4_2_5.lib"])
+env.Append(LIBPATH=[cppzmq_location+"/libzmq-build/lib/Debug/"])
+
+# Copy("C:/godot/bin/libzmq-v141-mt-gd-4_2_5.dll", "C:/Users/raiya/Downloads/cppzmq-master/libzmq-build/bin/Debug/libzmq-v141-mt-gd-4_2_5.dll")
+
+
+env.add_source_files(env.modules_sources,"*.cpp") # Add all cpp files to the build
