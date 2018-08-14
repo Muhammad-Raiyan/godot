@@ -4,8 +4,8 @@
 
 #include "reference.h"
 #include <string>
-#include "zhelpers.hpp"
 #include <iostream>
+#include "zhelpers.hpp"
 
 using namespace zmq;
 
@@ -32,6 +32,7 @@ public:
 	void setGuiPubPort(int port);
 
 	String searchRequest(String data_to_search);
+	String publish(String envelope, String data);
 };
 
 #endif

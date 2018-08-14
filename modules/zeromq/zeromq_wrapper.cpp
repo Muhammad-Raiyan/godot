@@ -36,8 +36,10 @@ void Zeromq_wrapper::setGuiPubPort(int port) {
 	std::cout << guiPubPort << std::endl;
 }
 
+// TODO: REMOVE this function
 String Zeromq_wrapper::searchRequest(String data_to_search) {
-	
+
+	// Convert String to std::string
 	const char *jsonCharPtr = String_to_charPtr(data_to_search);
 	std::string jsonString(jsonCharPtr);
 	std::cout << "Data to search: "  << jsonString << std::endl;
@@ -53,8 +55,29 @@ String Zeromq_wrapper::searchRequest(String data_to_search) {
 	return data.c_str();
 }
 
+String Zeromq_wrapper::publish(String envelope, String data) {
+
+	// Convert String to std::string
+	const char *jsonCharPtr = String_to_charPtr(data);
+	const char *envlpCharPtr = String_to_charPtr(envelope);
+	std::string envlpString(envlpCharPtr);
+	std::string jsonString(jsonCharPtr);
+	std::cout <<"Envelope: " << envlpString << " Data: " << jsonString << std::endl;
+
+	// Start Broadcast
+	s_sendmore(publisher, envlpString);
+	s_send(publisher, jsonString);
+	Sleep(1); //  Give 0MQ time to flush output
+	std::string res_envelope = s_recv(subscriber);
+	std::string res_data = s_recv(subscriber);
+
+	// std::cout << data << std::endl;
+	return res_data.c_str();
+}
+
 void Zeromq_wrapper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("searchRequest", "data_to_search"), &Zeromq_wrapper::searchRequest);
+	ClassDB::bind_method(D_METHOD("publish", "envelope", "data"), &Zeromq_wrapper::publish);
 }
 
 Zeromq_wrapper::Zeromq_wrapper() {
