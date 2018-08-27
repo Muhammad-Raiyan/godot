@@ -83,7 +83,8 @@ def configure(env):
     mono_lib_names = ['mono-2.0-sgen', 'monosgen-2.0']
 
     if env['platform'] == 'windows':
-        mono_root = None
+        mono_root = ''
+
         if bits == '32':
             if os.getenv('MONO32_PREFIX'):
                 mono_root = os.getenv('MONO32_PREFIX')
@@ -264,11 +265,13 @@ def pkgconfig_try_find_mono_root(mono_lib_names, sharedlib_ext):
 
 
 def pkgconfig_try_find_mono_version():
+    from compat import decode_utf8
+
     lines = subprocess.check_output(['pkg-config', 'monosgen-2', '--modversion']).splitlines()
     greater_version = None
     for line in lines:
         try:
-            version = LooseVersion(line)
+            version = LooseVersion(decode_utf8(line))
             if greater_version is None or version > greater_version:
                 greater_version = version
         except ValueError:

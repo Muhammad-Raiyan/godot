@@ -28,6 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 #include "rasterizer_storage_gles2.h"
+
 #include "project_settings.h"
 #include "rasterizer_canvas_gles2.h"
 #include "rasterizer_scene_gles2.h"
@@ -61,11 +62,12 @@ void RasterizerStorageGLES2::bind_quad_array() const {
 	glEnableVertexAttribArray(VS::ARRAY_TEX_UV);
 }
 
-Ref<Image> RasterizerStorageGLES2::_get_gl_image_and_format(const Ref<Image> &p_image, Image::Format p_format, uint32_t p_flags, GLenum &r_gl_format, GLenum &r_gl_internal_format, GLenum &r_gl_type, bool &r_compressed) {
+Ref<Image> RasterizerStorageGLES2::_get_gl_image_and_format(const Ref<Image> &p_image, Image::Format p_format, uint32_t p_flags, Image::Format &r_real_format, GLenum &r_gl_format, GLenum &r_gl_internal_format, GLenum &r_gl_type, bool &r_compressed) const {
 
 	r_gl_format = 0;
 	Ref<Image> image = p_image;
 	r_compressed = false;
+	r_real_format = p_format;
 
 	bool need_decompress = false;
 
@@ -317,6 +319,7 @@ Ref<Image> RasterizerStorageGLES2::_get_gl_image_and_format(const Ref<Image> &p_
 		r_gl_format = GL_RGBA;
 		r_gl_internal_format = GL_RGBA;
 		r_gl_type = GL_UNSIGNED_BYTE;
+		r_real_format = Image::FORMAT_RGBA8;
 
 		return image;
 	}
@@ -382,9 +385,14 @@ void RasterizerStorageGLES2::texture_allocate(RID p_texture, int p_width, int p_
 		case VS::TEXTURE_TYPE_3D: {
 			texture->images.resize(p_depth_3d);
 		} break;
+		default: {
+			ERR_PRINT("Unknown texture type!");
+			return;
+		}
 	}
 
-	_get_gl_image_and_format(Ref<Image>(), texture->format, texture->flags, format, internal_format, type, compressed);
+	Image::Format real_format;
+	_get_gl_image_and_format(Ref<Image>(), texture->format, texture->flags, real_format, format, internal_format, type, compressed);
 
 	texture->alloc_width = texture->width;
 	texture->alloc_height = texture->height;
@@ -426,7 +434,8 @@ void RasterizerStorageGLES2::texture_set_data(RID p_texture, const Ref<Image> &p
 		texture->images.write[p_layer] = p_image;
 	}
 
-	Ref<Image> img = _get_gl_image_and_format(p_image, p_image->get_format(), texture->flags, format, internal_format, type, compressed);
+	Image::Format real_format;
+	Ref<Image> img = _get_gl_image_and_format(p_image, p_image->get_format(), texture->flags, real_format, format, internal_format, type, compressed);
 
 	if (config.shrink_textures_x2 && (p_image->has_mipmaps() || !p_image->is_compressed()) && !(texture->flags & VS::TEXTURE_FLAG_USED_FOR_STREAMING)) {
 
@@ -570,11 +579,19 @@ Ref<Image> RasterizerStorageGLES2::texture_get_data(RID p_texture, int p_layer) 
 	if (texture->type == VS::TEXTURE_TYPE_CUBEMAP && p_layer < 6 && p_layer >= 0 && !texture->images[p_layer].is_null()) {
 		return texture->images[p_layer];
 	}
+
 #ifdef GLES_OVER_GL
+
+	Image::Format real_format;
+	GLenum gl_format;
+	GLenum gl_internal_format;
+	GLenum gl_type;
+	bool compressed;
+	_get_gl_image_and_format(Ref<Image>(), texture->format, texture->flags, real_format, gl_format, gl_internal_format, gl_type, compressed);
 
 	PoolVector<uint8_t> data;
 
-	int data_size = Image::get_image_data_size(texture->alloc_width, texture->alloc_height, texture->format, texture->mipmaps > 1 ? -1 : 0);
+	int data_size = Image::get_image_data_size(texture->alloc_width, texture->alloc_height, real_format, texture->mipmaps > 1 ? -1 : 0);
 
 	data.resize(data_size * 2); //add some memory at the end, just in case for buggy drivers
 	PoolVector<uint8_t>::Write wb = data.write();
@@ -585,13 +602,11 @@ Ref<Image> RasterizerStorageGLES2::texture_get_data(RID p_texture, int p_layer) 
 
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
-	//print_line("GET FORMAT: " + Image::get_format_name(texture->format) + " mipmaps: " + itos(texture->mipmaps));
-
 	for (int i = 0; i < texture->mipmaps; i++) {
 
 		int ofs = 0;
 		if (i > 0) {
-			ofs = Image::get_image_data_size(texture->alloc_width, texture->alloc_height, texture->format, i - 1);
+			ofs = Image::get_image_data_size(texture->alloc_width, texture->alloc_height, real_format, i - 1);
 		}
 
 		if (texture->compressed) {
@@ -607,7 +622,7 @@ Ref<Image> RasterizerStorageGLES2::texture_get_data(RID p_texture, int p_layer) 
 
 	data.resize(data_size);
 
-	Image *img = memnew(Image(texture->alloc_width, texture->alloc_height, texture->mipmaps > 1 ? true : false, texture->format, data));
+	Image *img = memnew(Image(texture->alloc_width, texture->alloc_height, texture->mipmaps > 1 ? true : false, real_format, data));
 
 	return Ref<Image>(img);
 #else
@@ -623,6 +638,8 @@ void RasterizerStorageGLES2::texture_set_flags(RID p_texture, uint32_t p_flags) 
 	ERR_FAIL_COND(!texture);
 
 	bool had_mipmaps = texture->flags & VS::TEXTURE_FLAG_MIPMAPS;
+
+	texture->flags = p_flags;
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(texture->target, texture->tex_id);
@@ -1290,6 +1307,10 @@ void RasterizerStorageGLES2::shader_get_param_list(RID p_shader, List<PropertyIn
 				pi.type = Variant::OBJECT;
 				pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
 				pi.hint_string = "CubeMap";
+			} break;
+
+			default: {
+
 			} break;
 		}
 
@@ -2836,7 +2857,11 @@ void RasterizerStorageGLES2::skeleton_allocate(RID p_skeleton, int p_bones, bool
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, skeleton->tex_id);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, p_bones * 3, 1, 0, GL_RGB, GL_FLOAT, NULL);
+#ifdef GLES_OVER_GL
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, p_bones * 3, 1, 0, GL_RGBA, GL_FLOAT, NULL);
+#else
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, p_bones * 3, 1, 0, GL_RGBA, GL_FLOAT, NULL);
+#endif
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -3641,6 +3666,7 @@ void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 
 	texture_set_flags(rt->texture, texture->flags);
 
+	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// copy texscreen buffers

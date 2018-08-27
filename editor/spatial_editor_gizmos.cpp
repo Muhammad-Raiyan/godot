@@ -677,7 +677,7 @@ void EditorSpatialGizmo::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_collision_segments", "segments"), &EditorSpatialGizmo::add_collision_segments);
 	ClassDB::bind_method(D_METHOD("add_collision_triangles", "triangles"), &EditorSpatialGizmo::add_collision_triangles);
 	ClassDB::bind_method(D_METHOD("add_unscaled_billboard", "material", "default_scale"), &EditorSpatialGizmo::add_unscaled_billboard, DEFVAL(1));
-	ClassDB::bind_method(D_METHOD("add_handles", "handles", "billboard", "secondary"), &EditorSpatialGizmo::add_handles, DEFVAL(false), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("add_handles", "handles", "material", "billboard", "secondary"), &EditorSpatialGizmo::add_handles, DEFVAL(false), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("set_spatial_node", "node"), &EditorSpatialGizmo::_set_spatial_node);
 	ClassDB::bind_method(D_METHOD("clear"), &EditorSpatialGizmo::clear);
 	ClassDB::bind_method(D_METHOD("set_hidden", "hidden"), &EditorSpatialGizmo::set_hidden);
@@ -1337,6 +1337,48 @@ void CameraSpatialGizmoPlugin::redraw(EditorSpatialGizmo *p_gizmo) {
 	p_gizmo->add_collision_segments(lines);
 	p_gizmo->add_unscaled_billboard(icon, 0.05);
 	p_gizmo->add_handles(handles, get_material("handles"));
+
+	ClippedCamera *clipcam = Object::cast_to<ClippedCamera>(camera);
+	if (clipcam) {
+		Spatial *parent = Object::cast_to<Spatial>(camera->get_parent());
+		if (!parent) {
+			return;
+		}
+		Vector3 cam_normal = -camera->get_global_transform().basis.get_axis(Vector3::AXIS_Z).normalized();
+		Vector3 cam_x = camera->get_global_transform().basis.get_axis(Vector3::AXIS_X).normalized();
+		Vector3 cam_y = camera->get_global_transform().basis.get_axis(Vector3::AXIS_Y).normalized();
+		Vector3 cam_pos = camera->get_global_transform().origin;
+		Vector3 parent_pos = parent->get_global_transform().origin;
+
+		Plane parent_plane(parent_pos, cam_normal);
+		Vector3 ray_from = parent_plane.project(cam_pos);
+
+		lines.clear();
+		lines.push_back(ray_from + cam_x * 0.5 + cam_y * 0.5);
+		lines.push_back(ray_from + cam_x * 0.5 + cam_y * -0.5);
+
+		lines.push_back(ray_from + cam_x * 0.5 + cam_y * -0.5);
+		lines.push_back(ray_from + cam_x * -0.5 + cam_y * -0.5);
+
+		lines.push_back(ray_from + cam_x * -0.5 + cam_y * -0.5);
+		lines.push_back(ray_from + cam_x * -0.5 + cam_y * 0.5);
+
+		lines.push_back(ray_from + cam_x * -0.5 + cam_y * 0.5);
+		lines.push_back(ray_from + cam_x * 0.5 + cam_y * 0.5);
+
+		if (parent_plane.distance_to(cam_pos) < 0) {
+			lines.push_back(ray_from);
+			lines.push_back(cam_pos);
+		}
+
+		Transform local = camera->get_global_transform().affine_inverse();
+		for (int i = 0; i < lines.size(); i++) {
+			lines.write[i] = local.xform(lines[i]);
+		}
+
+		p_gizmo->add_lines(lines, material);
+		p_gizmo->add_collision_segments(lines);
+	}
 }
 
 //////
@@ -1680,8 +1722,16 @@ void PhysicalBoneSpatialGizmoPlugin::redraw(EditorSpatialGizmo *p_gizmo) {
 		return;
 
 	Skeleton *sk(physical_bone->find_skeleton_parent());
+	if (!sk)
+		return;
+
 	PhysicalBone *pb(sk->get_physical_bone(physical_bone->get_bone_id()));
+	if (!pb)
+		return;
+
 	PhysicalBone *pbp(sk->get_physical_bone_parent(physical_bone->get_bone_id()));
+	if (!pbp)
+		return;
 
 	Vector<Vector3> points;
 
@@ -1916,6 +1966,38 @@ void RayCastSpatialGizmoPlugin::redraw(EditorSpatialGizmo *p_gizmo) {
 
 	p_gizmo->add_lines(lines, material);
 	p_gizmo->add_collision_segments(lines);
+}
+
+/////
+
+void SpringArmSpatialGizmoPlugin::redraw(EditorSpatialGizmo *p_gizmo) {
+
+	SpringArm *spring_arm = Object::cast_to<SpringArm>(p_gizmo->get_spatial_node());
+
+	p_gizmo->clear();
+
+	Vector<Vector3> lines;
+
+	lines.push_back(Vector3());
+	lines.push_back(Vector3(0, 0, 1.0) * spring_arm->get_length());
+
+	Ref<SpatialMaterial> material = get_material("shape_material", p_gizmo);
+
+	p_gizmo->add_lines(lines, material);
+	p_gizmo->add_collision_segments(lines);
+}
+
+SpringArmSpatialGizmoPlugin::SpringArmSpatialGizmoPlugin() {
+	Color gizmo_color = EDITOR_DEF("editors/3d_gizmos/gizmo_colors/shape", Color(0.5, 0.7, 1));
+	create_material("shape_material", gizmo_color);
+}
+
+bool SpringArmSpatialGizmoPlugin::has_gizmo(Spatial *p_spatial) {
+	return Object::cast_to<SpringArm>(p_spatial) != NULL;
+}
+
+String SpringArmSpatialGizmoPlugin::get_name() const {
+	return "SpringArm";
 }
 
 /////

@@ -624,6 +624,22 @@ void EditorHelp::_add_type(const String &p_type, const String &p_enum) {
 	class_desc->pop();
 }
 
+String EditorHelp::_fix_constant(const String &p_constant) const {
+
+	if (p_constant.strip_edges() == "4294967295") {
+		return "0xFFFFFFFF";
+	}
+
+	if (p_constant.strip_edges() == "2147483647") {
+		return "0x7FFFFFFF";
+	}
+	if (p_constant.strip_edges() == "1048575") {
+		return "0xfffff";
+	}
+
+	return p_constant;
+}
+
 void EditorHelp::_add_method(const DocData::MethodDoc &p_method, bool p_overview) {
 
 	method_line[p_method.name] = class_desc->get_line_count() - 2; //gets overridden if description
@@ -673,7 +689,7 @@ void EditorHelp::_add_method(const DocData::MethodDoc &p_method, bool p_overview
 			class_desc->push_color(symbol_color);
 			class_desc->add_text("=");
 			class_desc->pop();
-			_add_text(p_method.arguments[j].default_value);
+			_add_text(_fix_constant(p_method.arguments[j].default_value));
 		}
 
 		class_desc->pop();
@@ -1781,7 +1797,7 @@ void EditorHelp::_notification(int p_what) {
 
 		case EditorSettings::NOTIFICATION_EDITOR_SETTINGS_CHANGED: {
 
-			class_desc->add_color_override("selection_color", get_color("text_editor/theme/selection_color", "Editor"));
+			class_desc->add_color_override("selection_color", EditorSettings::get_singleton()->get("text_editor/theme/selection_color"));
 			_update_doc();
 
 		} break;
@@ -1863,7 +1879,7 @@ EditorHelp::EditorHelp() {
 	class_desc = memnew(RichTextLabel);
 	add_child(class_desc);
 	class_desc->set_v_size_flags(SIZE_EXPAND_FILL);
-	class_desc->add_color_override("selection_color", get_color("text_editor/theme/selection_color", "Editor"));
+	class_desc->add_color_override("selection_color", EditorSettings::get_singleton()->get("text_editor/theme/selection_color"));
 	class_desc->connect("meta_clicked", this, "_class_desc_select");
 	class_desc->connect("gui_input", this, "_class_desc_input");
 
@@ -1890,8 +1906,6 @@ void EditorHelpBit::_go_to_help(String p_what) {
 }
 
 void EditorHelpBit::_meta_clicked(String p_select) {
-
-	print_line("got meta " + p_select);
 
 	if (p_select.begins_with("$")) { //enum
 
@@ -1929,7 +1943,7 @@ void EditorHelpBit::_notification(int p_what) {
 	switch (p_what) {
 		case EditorSettings::NOTIFICATION_EDITOR_SETTINGS_CHANGED: {
 
-			rich_text->add_color_override("selection_color", get_color("text_editor/theme/selection_color", "Editor"));
+			rich_text->add_color_override("selection_color", EditorSettings::get_singleton()->get("text_editor/theme/selection_color"));
 		} break;
 
 		default: break;
@@ -1948,7 +1962,7 @@ EditorHelpBit::EditorHelpBit() {
 	add_child(rich_text);
 	//rich_text->set_anchors_and_margins_preset(Control::PRESET_WIDE);
 	rich_text->connect("meta_clicked", this, "_meta_clicked");
-	rich_text->add_color_override("selection_color", get_color("text_editor/theme/selection_color", "Editor"));
+	rich_text->add_color_override("selection_color", EditorSettings::get_singleton()->get("text_editor/theme/selection_color"));
 	rich_text->set_override_selected_font_color(false);
 	set_custom_minimum_size(Size2(0, 70 * EDSCALE));
 }

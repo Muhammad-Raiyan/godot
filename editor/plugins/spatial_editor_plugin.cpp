@@ -2081,6 +2081,15 @@ void SpatialEditorViewport::set_message(String p_message, float p_time) {
 	message_time = p_time;
 }
 
+void SpatialEditorPlugin::edited_scene_changed() {
+	for (int i = 0; i < SpatialEditor::VIEWPORTS_COUNT; i++) {
+		SpatialEditorViewport *viewport = SpatialEditor::get_singleton()->get_editor_viewport(i);
+		if (viewport->is_visible()) {
+			viewport->notification(Control::NOTIFICATION_VISIBILITY_CHANGED);
+		}
+	}
+}
+
 void SpatialEditorViewport::_notification(int p_what) {
 
 	if (p_what == NOTIFICATION_VISIBILITY_CHANGED) {
@@ -2824,7 +2833,7 @@ void SpatialEditorViewport::update_transform_gizmo_view() {
 		dd = 0.0001;
 
 	float gsize = EditorSettings::get_singleton()->get("editors/3d/manipulator_gizmo_size");
-	gizmo_scale = (gsize / Math::abs(dd));
+	gizmo_scale = (gsize / Math::abs(dd)) * MAX(1, EDSCALE) / viewport_container->get_stretch_shrink();
 	Vector3 scale = Vector3(1, 1, 1) * gizmo_scale;
 
 	xform.basis.scale(scale);
@@ -3346,7 +3355,7 @@ void SpatialEditorViewport::drop_data_fw(const Point2 &p_point, const Variant &p
 		if (root_node) {
 			list.push_back(root_node);
 		} else {
-			accept->get_ok()->set_text(TTR("OK :("));
+			accept->get_ok()->set_text(TTR("OK"));
 			accept->set_text(TTR("No parent to instance a child at."));
 			accept->popup_centered_minsize();
 			_remove_preview();
@@ -3386,6 +3395,7 @@ SpatialEditorViewport::SpatialEditorViewport(SpatialEditor *p_spatial_editor, Ed
 	clicked = 0;
 	clicked_includes_current = false;
 	orthogonal = false;
+	lock_rotation = false;
 	message_time = 0;
 	zoom_indicator_delay = 0.0;
 
@@ -4342,10 +4352,13 @@ void SpatialEditor::_menu_item_pressed(int p_option) {
 
 			bool is_checked = view_menu->get_popup()->is_item_checked(view_menu->get_popup()->get_item_index(p_option));
 
-			is_checked = !is_checked;
-			VisualServer::get_singleton()->instance_set_visible(origin_instance, is_checked);
+			origin_enabled = !is_checked;
+			VisualServer::get_singleton()->instance_set_visible(origin_instance, origin_enabled);
+			// Update the grid since its appearance depends on whether the origin is enabled
+			_finish_grid();
+			_init_grid();
 
-			view_menu->get_popup()->set_item_checked(view_menu->get_popup()->get_item_index(p_option), is_checked);
+			view_menu->get_popup()->set_item_checked(view_menu->get_popup()->get_item_index(p_option), origin_enabled);
 		} break;
 		case MENU_VIEW_GRID: {
 
@@ -4517,9 +4530,9 @@ void SpatialEditor::_init_indicators() {
 					nivec * 0.0 + ivec * (GIZMO_ARROW_OFFSET + GIZMO_ARROW_SIZE),
 				};
 
-				int arrow_sides = 6;
+				int arrow_sides = 16;
 
-				for (int k = 0; k < 6; k++) {
+				for (int k = 0; k < arrow_sides; k++) {
 
 					Basis ma(ivec, Math_PI * 2 * float(k) / arrow_sides);
 					Basis mb(ivec, Math_PI * 2 * float(k + 1) / arrow_sides);
@@ -4603,10 +4616,10 @@ void SpatialEditor::_init_indicators() {
 					ivec * 0.02 + ivec2 * 0.02 + ivec2 * GIZMO_CIRCLE_SIZE,
 				};
 
-				for (int k = 0; k < 32; k++) {
+				for (int k = 0; k < 64; k++) {
 
-					Basis ma(ivec, Math_PI * 2 * float(k) / 32);
-					Basis mb(ivec, Math_PI * 2 * float(k + 1) / 32);
+					Basis ma(ivec, Math_PI * 2 * float(k) / 64);
+					Basis mb(ivec, Math_PI * 2 * float(k + 1) / 64);
 
 					for (int j = 0; j < 4; j++) {
 
@@ -4768,7 +4781,11 @@ void SpatialEditor::_init_grid() {
 			Vector3 p2_dest = p2 * (-axis_n1 + axis_n2);
 
 			Color line_color = secondary_grid_color;
-			if (j % primary_grid_steps == 0) {
+			if (origin_enabled && j == 0) {
+				// Don't draw the center lines of the grid if the origin is enabled
+				// The origin would overlap the grid lines in this case, causing flickering
+				continue;
+			} else if (j % primary_grid_steps == 0) {
 				line_color = primary_grid_color;
 			}
 
@@ -5177,9 +5194,10 @@ void SpatialEditor::_register_all_gizmos() {
 	register_gizmo_plugin(Ref<MeshInstanceSpatialGizmoPlugin>(memnew(MeshInstanceSpatialGizmoPlugin)));
 	register_gizmo_plugin(Ref<SoftBodySpatialGizmoPlugin>(memnew(SoftBodySpatialGizmoPlugin)));
 	register_gizmo_plugin(Ref<Sprite3DSpatialGizmoPlugin>(memnew(Sprite3DSpatialGizmoPlugin)));
-	register_gizmo_plugin(Ref<Position3DSpatialGizmoPlugin>(memnew(Position3DSpatialGizmoPlugin)));
 	register_gizmo_plugin(Ref<SkeletonSpatialGizmoPlugin>(memnew(SkeletonSpatialGizmoPlugin)));
+	register_gizmo_plugin(Ref<Position3DSpatialGizmoPlugin>(memnew(Position3DSpatialGizmoPlugin)));
 	register_gizmo_plugin(Ref<RayCastSpatialGizmoPlugin>(memnew(RayCastSpatialGizmoPlugin)));
+	register_gizmo_plugin(Ref<SpringArmSpatialGizmoPlugin>(memnew(SpringArmSpatialGizmoPlugin)));
 	register_gizmo_plugin(Ref<VehicleWheelSpatialGizmoPlugin>(memnew(VehicleWheelSpatialGizmoPlugin)));
 	register_gizmo_plugin(Ref<VisibilityNotifierGizmoPlugin>(memnew(VisibilityNotifierGizmoPlugin)));
 	register_gizmo_plugin(Ref<ParticlesGizmoPlugin>(memnew(ParticlesGizmoPlugin)));
@@ -5646,7 +5664,7 @@ SpatialEditorPlugin::~SpatialEditorPlugin() {
 
 void EditorSpatialGizmoPlugin::create_material(const String &p_name, const Color &p_color, bool p_billboard, bool p_on_top, bool p_use_vertex_color) {
 
-	Color instanced_color = EDITOR_GET("editors/3d_gizmos/gizmo_colors/instanced");
+	Color instanced_color = EDITOR_DEF("editors/3d_gizmos/gizmo_colors/instanced", Color(0.7, 0.7, 0.7, 0.5));
 
 	Vector<Ref<SpatialMaterial> > mats;
 
@@ -5688,7 +5706,7 @@ void EditorSpatialGizmoPlugin::create_material(const String &p_name, const Color
 
 void EditorSpatialGizmoPlugin::create_icon_material(const String &p_name, const Ref<Texture> &p_texture, bool p_on_top, const Color &p_albedo) {
 
-	Color instanced_color = EDITOR_GET("editors/3d_gizmos/gizmo_colors/instanced");
+	Color instanced_color = EDITOR_DEF("editors/3d_gizmos/gizmo_colors/instanced", Color(0.7, 0.7, 0.7, 0.5));
 
 	Vector<Ref<SpatialMaterial> > icons;
 

@@ -915,12 +915,6 @@ void ProjectManager::_update_project_buttons() {
 
 		CanvasItem *item = Object::cast_to<CanvasItem>(scroll_children->get_child(i));
 		item->update();
-
-		Button *show = Object::cast_to<Button>(item->get_node(NodePath("project/path_box/show")));
-		if (show) {
-			String current = item->get_meta("name");
-			show->set_visible(selected_list.has(current));
-		}
 	}
 
 	bool empty_selection = selected_list.empty();
@@ -1316,7 +1310,6 @@ void ProjectManager::_load_recent_projects() {
 		path_hb->add_child(show);
 		show->connect("pressed", this, "_show_project", varray(path));
 		show->set_tooltip(TTR("Show In File Manager"));
-		show->set_visible(false);
 
 		Label *fpath = memnew(Label(path));
 		fpath->set_name("path");
@@ -1397,7 +1390,7 @@ void ProjectManager::_open_project_confirm() {
 			return;
 		}
 
-		print_line("OPENING: " + path + " (" + selected + ")");
+		print_line("Editing project: " + path + " (" + selected + ")");
 
 		List<String> args;
 
@@ -1454,7 +1447,7 @@ void ProjectManager::_run_project_confirm() {
 			return;
 		}
 
-		print_line("OPENING: " + path + " (" + selected + ")");
+		print_line("Running project: " + path + " (" + selected + ")");
 
 		List<String> args;
 
@@ -1520,13 +1513,13 @@ void ProjectManager::_scan_dir(DirAccess *da, float pos, float total, List<Strin
 
 void ProjectManager::_scan_begin(const String &p_base) {
 
-	print_line("SCAN PROJECTS AT: " + p_base);
+	print_line("Scanning projects at: " + p_base);
 	List<String> projects;
 	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 	da->change_dir(p_base);
 	_scan_dir(da, 0, 1, &projects);
 	memdelete(da);
-	print_line("found: " + itos(projects.size()) + " projects.");
+	print_line("Found " + itos(projects.size()) + " projects.");
 
 	for (List<String>::Element *E = projects.front(); E; E = E->next()) {
 		String proj = E->get().replace("/", "::");
@@ -1757,6 +1750,8 @@ ProjectManager::ProjectManager() {
 				editor_set_scale(custom_display_scale);
 			} break;
 		}
+
+		OS::get_singleton()->set_window_size(OS::get_singleton()->get_window_size() * MAX(1, EDSCALE));
 	}
 
 	FileDialog::set_default_show_hidden_files(EditorSettings::get_singleton()->get("filesystem/file_dialog/show_hidden_files"));
@@ -1824,7 +1819,7 @@ ProjectManager::ProjectManager() {
 	project_filter = memnew(ProjectListFilter);
 	search_box->add_child(project_filter);
 	project_filter->connect("filter_changed", this, "_load_recent_projects");
-	project_filter->set_custom_minimum_size(Size2(250, 10));
+	project_filter->set_custom_minimum_size(Size2(280, 10) * EDSCALE);
 	search_tree_vb->add_child(search_box);
 
 	PanelContainer *pc = memnew(PanelContainer);

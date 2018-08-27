@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  cube_grid_theme_editor_plugin.h                                      */
+/*  image_compress_cvtt.h                                                */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,64 +28,12 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef CUBE_GRID_THEME_EDITOR_PLUGIN_H
-#define CUBE_GRID_THEME_EDITOR_PLUGIN_H
+#ifndef IMAGE_COMPRESS_CVTT_H
+#define IMAGE_COMPRESS_CVTT_H
 
-#include "editor/editor_node.h"
-#include "scene/resources/mesh_library.h"
+#include "image.h"
 
-class MeshLibraryEditor : public Control {
+void image_compress_cvtt(Image *p_image, float p_lossy_quality, Image::CompressSource p_source);
+void image_decompress_cvtt(Image *p_image);
 
-	GDCLASS(MeshLibraryEditor, Control);
-
-	Ref<MeshLibrary> theme;
-
-	EditorNode *editor;
-	MenuButton *menu;
-	ConfirmationDialog *cd;
-	EditorFileDialog *file;
-	int to_erase;
-
-	enum {
-
-		MENU_OPTION_ADD_ITEM,
-		MENU_OPTION_REMOVE_ITEM,
-		MENU_OPTION_UPDATE_FROM_SCENE,
-		MENU_OPTION_IMPORT_FROM_SCENE
-	};
-
-	int option;
-	void _import_scene_cbk(const String &p_str);
-	void _menu_cbk(int p_option);
-	void _menu_confirm();
-
-	static void _import_scene(Node *p_scene, Ref<MeshLibrary> p_library, bool p_merge);
-
-protected:
-	static void _bind_methods();
-
-public:
-	void edit(const Ref<MeshLibrary> &p_theme);
-	static Error update_library_file(Node *p_base_scene, Ref<MeshLibrary> ml, bool p_merge = true);
-
-	MeshLibraryEditor(EditorNode *p_editor);
-};
-
-class MeshLibraryEditorPlugin : public EditorPlugin {
-
-	GDCLASS(MeshLibraryEditorPlugin, EditorPlugin);
-
-	MeshLibraryEditor *theme_editor;
-	EditorNode *editor;
-
-public:
-	virtual String get_name() const { return "MeshLibrary"; }
-	bool has_main_screen() const { return false; }
-	virtual void edit(Object *p_node);
-	virtual bool handles(Object *p_node) const;
-	virtual void make_visible(bool p_visible);
-
-	MeshLibraryEditorPlugin(EditorNode *p_node);
-};
-
-#endif // CUBE_GRID_THEME_EDITOR_PLUGIN_H
+#endif // IMAGE_COMPRESS_CVTT_H

@@ -107,7 +107,7 @@ void RasterizerSceneGLES2::shadow_atlas_set_size(RID p_atlas, int p_size) {
 		glActiveTexture(GL_TEXTURE0);
 		glGenTextures(1, &shadow_atlas->depth);
 		glBindTexture(GL_TEXTURE_2D, shadow_atlas->depth);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, shadow_atlas->size, shadow_atlas->size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadow_atlas->size, shadow_atlas->size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -837,7 +837,7 @@ static const GLenum gl_primitive[] = {
 	GL_TRIANGLE_FAN
 };
 
-void RasterizerSceneGLES2::_setup_material(RasterizerStorageGLES2::Material *p_material, bool p_reverse_cull, Size2i p_skeleton_tex_size) {
+void RasterizerSceneGLES2::_setup_material(RasterizerStorageGLES2::Material *p_material, bool p_reverse_cull, bool p_alpha_pass, Size2i p_skeleton_tex_size) {
 
 	// material parameters
 
@@ -849,6 +849,20 @@ void RasterizerSceneGLES2::_setup_material(RasterizerStorageGLES2::Material *p_m
 		glDisable(GL_DEPTH_TEST);
 	} else {
 		glEnable(GL_DEPTH_TEST);
+	}
+
+	switch (p_material->shader->spatial.depth_draw_mode) {
+		case RasterizerStorageGLES2::Shader::Spatial::DEPTH_DRAW_ALPHA_PREPASS:
+		case RasterizerStorageGLES2::Shader::Spatial::DEPTH_DRAW_OPAQUE: {
+
+			glDepthMask(!p_alpha_pass);
+		} break;
+		case RasterizerStorageGLES2::Shader::Spatial::DEPTH_DRAW_ALWAYS: {
+			glDepthMask(GL_TRUE);
+		} break;
+		case RasterizerStorageGLES2::Shader::Spatial::DEPTH_DRAW_NEVER: {
+			glDepthMask(GL_FALSE);
+		} break;
 	}
 
 	// TODO whyyyyy????
@@ -913,8 +927,8 @@ void RasterizerSceneGLES2::_setup_material(RasterizerStorageGLES2::Material *p_m
 void RasterizerSceneGLES2::_setup_geometry(RenderList::Element *p_element, RasterizerStorageGLES2::Skeleton *p_skeleton) {
 
 	state.scene_shader.set_conditional(SceneShaderGLES2::USE_SKELETON, p_skeleton != NULL);
-	// state.scene_shader.set_conditional(SceneShaderGLES2::USE_SKELETON_SOFTWARE, !storage->config.float_texture_supported);
-	state.scene_shader.set_conditional(SceneShaderGLES2::USE_SKELETON_SOFTWARE, true);
+	state.scene_shader.set_conditional(SceneShaderGLES2::USE_SKELETON_SOFTWARE, !storage->config.float_texture_supported);
+	// state.scene_shader.set_conditional(SceneShaderGLES2::USE_SKELETON_SOFTWARE, true);
 
 	switch (p_element->instance->base_type) {
 
@@ -951,9 +965,9 @@ void RasterizerSceneGLES2::_setup_geometry(RenderList::Element *p_element, Raste
 		} break;
 	}
 
-	if (false && storage->config.float_texture_supported) {
+	if (storage->config.float_texture_supported) {
 		if (p_skeleton) {
-			glActiveTexture(GL_TEXTURE4);
+			glActiveTexture(GL_TEXTURE0 + storage->config.max_texture_image_units - 1);
 			glBindTexture(GL_TEXTURE_2D, p_skeleton->tex_id);
 		}
 
@@ -1202,6 +1216,12 @@ void RasterizerSceneGLES2::_render_geometry(RenderList::Element *p_element) {
 			glDisableVertexAttribArray(15); // color
 			glDisableVertexAttribArray(8); // custom data
 
+			if (!s->attribs[VS::ARRAY_COLOR].enabled) {
+				glDisableVertexAttribArray(VS::ARRAY_COLOR);
+
+				glVertexAttrib4f(VS::ARRAY_COLOR, 1, 1, 1, 1);
+			}
+
 			glVertexAttrib4f(15, 1, 1, 1, 1);
 			glVertexAttrib4f(8, 0, 0, 0, 0);
 
@@ -1245,7 +1265,12 @@ void RasterizerSceneGLES2::_render_geometry(RenderList::Element *p_element) {
 				}
 
 				if (multi_mesh->color_floats) {
-					glVertexAttrib4fv(15, buffer + color_ofs);
+					if (multi_mesh->color_format == VS::MULTIMESH_COLOR_8BIT) {
+						uint8_t *color_data = (uint8_t *)(buffer + color_ofs);
+						glVertexAttrib4f(15, color_data[0] / 255.0, color_data[1] / 255.0, color_data[2] / 255.0, color_data[3] / 255.0);
+					} else {
+						glVertexAttrib4fv(15, buffer + color_ofs);
+					}
 				}
 
 				if (multi_mesh->custom_data_floats) {
@@ -1432,7 +1457,7 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 
 		_setup_geometry(e, skeleton);
 
-		_setup_material(material, p_reverse_cull, Size2i(skeleton ? skeleton->size * 3 : 0, 0));
+		_setup_material(material, p_reverse_cull, p_alpha_pass, Size2i(skeleton ? skeleton->size * 3 : 0, 0));
 
 		if (use_radiance_map) {
 			state.scene_shader.set_uniform(SceneShaderGLES2::RADIANCE_INVERSE_XFORM, p_view_transform);
@@ -1568,7 +1593,7 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 			{
 				_setup_geometry(e, skeleton);
 
-				_setup_material(material, p_reverse_cull, Size2i(skeleton ? skeleton->size * 3 : 0, 0));
+				_setup_material(material, p_reverse_cull, p_alpha_pass, Size2i(skeleton ? skeleton->size * 3 : 0, 0));
 				if (shadow_atlas != NULL) {
 					glActiveTexture(GL_TEXTURE0 + storage->config.max_texture_image_units - 4);
 					glBindTexture(GL_TEXTURE_2D, shadow_atlas->depth);
@@ -1757,7 +1782,7 @@ void RasterizerSceneGLES2::_render_render_list(RenderList::Element **p_elements,
 			RasterizerStorageGLES2::Skeleton *skeleton = storage->skeleton_owner.getornull(e->instance->skeleton);
 
 			{
-				_setup_material(material, p_reverse_cull, Size2i(skeleton ? skeleton->size * 3 : 0, 0));
+				_setup_material(material, p_reverse_cull, false, Size2i(skeleton ? skeleton->size * 3 : 0, 0));
 
 				if (directional_shadow.depth) {
 					glActiveTexture(GL_TEXTURE0 + storage->config.max_texture_image_units - 4); // TODO move into base pass
@@ -2031,7 +2056,7 @@ void RasterizerSceneGLES2::render_scene(const Transform &p_cam_transform, const 
 			} break;
 
 			default: {
-				print_line("uhm");
+				// FIXME: implement other background modes
 			} break;
 		}
 	}
@@ -2401,7 +2426,7 @@ void RasterizerSceneGLES2::initialize() {
 			glBindTexture(GL_TEXTURE_CUBE_MAP, cube.cubemap);
 
 			for (int i = 0; i < 6; i++) {
-				glTexImage2D(_cube_side_enum[i], 0, GL_DEPTH_COMPONENT16, cube_size, cube_size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, NULL);
+				glTexImage2D(_cube_side_enum[i], 0, GL_DEPTH_COMPONENT, cube_size, cube_size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, NULL);
 			}
 
 			glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -2435,7 +2460,7 @@ void RasterizerSceneGLES2::initialize() {
 		glGenTextures(1, &directional_shadow.depth);
 		glBindTexture(GL_TEXTURE_2D, directional_shadow.depth);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, directional_shadow.size, directional_shadow.size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, directional_shadow.size, directional_shadow.size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

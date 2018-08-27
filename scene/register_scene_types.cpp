@@ -51,7 +51,6 @@
 #include "scene/2d/parallax_background.h"
 #include "scene/2d/parallax_layer.h"
 #include "scene/2d/particles_2d.h"
-
 #include "scene/2d/path_2d.h"
 #include "scene/2d/physics_body_2d.h"
 #include "scene/2d/polygon_2d.h"
@@ -151,7 +150,6 @@
 #include "scene/resources/rectangle_shape_2d.h"
 #include "scene/resources/scene_format_text.h"
 #include "scene/resources/segment_shape_2d.h"
-#include "scene/resources/shader_graph.h"
 #include "scene/resources/shape_line_2d.h"
 #include "scene/resources/sky_box.h"
 #include "scene/resources/sphere_shape.h"
@@ -201,6 +199,7 @@
 #include "scene/3d/room_instance.h"
 #include "scene/3d/skeleton.h"
 #include "scene/3d/soft_body.h"
+#include "scene/3d/spring_arm.h"
 #include "scene/3d/sprite_3d.h"
 #include "scene/3d/vehicle_body.h"
 #include "scene/3d/visibility_notifier.h"
@@ -366,17 +365,16 @@ void register_scene_types() {
 	ClassDB::register_class<Spatial>();
 	ClassDB::register_virtual_class<SpatialGizmo>();
 	ClassDB::register_class<Skeleton>();
-	ClassDB::register_class<SkeletonIK>();
 	ClassDB::register_class<AnimationPlayer>();
 	ClassDB::register_class<Tween>();
 
 	OS::get_singleton()->yield(); //may take time to init
 
 #ifndef _3D_DISABLED
-	ClassDB::register_class<BoneAttachment>();
 	ClassDB::register_virtual_class<VisualInstance>();
 	ClassDB::register_virtual_class<GeometryInstance>();
 	ClassDB::register_class<Camera>();
+	ClassDB::register_class<ClippedCamera>();
 	ClassDB::register_class<Listener>();
 	ClassDB::register_class<ARVRCamera>();
 	ClassDB::register_class<ARVRController>();
@@ -415,6 +413,8 @@ void register_scene_types() {
 	ClassDB::register_class<AnimationNodeBlendSpace1D>();
 	ClassDB::register_class<AnimationNodeBlendSpace2D>();
 	ClassDB::register_class<AnimationNodeStateMachine>();
+	ClassDB::register_class<AnimationNodeStateMachinePlayback>();
+
 	ClassDB::register_class<AnimationNodeStateMachineTransition>();
 	ClassDB::register_class<AnimationNodeOutput>();
 	ClassDB::register_class<AnimationNodeOneShot>();
@@ -435,8 +435,13 @@ void register_scene_types() {
 	ClassDB::register_class<RigidBody>();
 	ClassDB::register_class<KinematicCollision>();
 	ClassDB::register_class<KinematicBody>();
+	ClassDB::register_class<SpringArm>();
+
 	ClassDB::register_class<PhysicalBone>();
 	ClassDB::register_class<SoftBody>();
+
+	ClassDB::register_class<SkeletonIK>();
+	ClassDB::register_class<BoneAttachment>();
 
 	ClassDB::register_class<VehicleBody>();
 	ClassDB::register_class<VehicleWheel>();
@@ -558,6 +563,9 @@ void register_scene_types() {
 	/* REGISTER RESOURCES */
 
 	ClassDB::register_virtual_class<Shader>();
+	ClassDB::register_class<ParticlesMaterial>();
+	SceneTree::add_idle_callback(ParticlesMaterial::flush_changes);
+	ParticlesMaterial::init_shaders();
 
 #ifndef _3D_DISABLED
 	ClassDB::register_virtual_class<Mesh>();
@@ -574,10 +582,6 @@ void register_scene_types() {
 	ClassDB::register_class<SpatialMaterial>();
 	SceneTree::add_idle_callback(SpatialMaterial::flush_changes);
 	SpatialMaterial::init_shaders();
-
-	ClassDB::register_class<ParticlesMaterial>();
-	SceneTree::add_idle_callback(ParticlesMaterial::flush_changes);
-	ParticlesMaterial::init_shaders();
 
 	ClassDB::register_class<MultiMesh>();
 	ClassDB::register_class<MeshLibrary>();

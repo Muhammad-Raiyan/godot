@@ -143,14 +143,19 @@ AudioDriver::AudioDriver() {
 #endif
 }
 
-AudioDriver *AudioDriverManager::drivers[MAX_DRIVERS];
-int AudioDriverManager::driver_count = 0;
 AudioDriverDummy AudioDriverManager::dummy_driver;
+AudioDriver *AudioDriverManager::drivers[MAX_DRIVERS] = {
+	&AudioDriverManager::dummy_driver,
+};
+int AudioDriverManager::driver_count = 1;
 
 void AudioDriverManager::add_driver(AudioDriver *p_driver) {
 
 	ERR_FAIL_COND(driver_count >= MAX_DRIVERS);
-	drivers[driver_count++] = p_driver;
+	drivers[driver_count - 1] = p_driver;
+
+	// Last driver is always our dummy driver
+	drivers[driver_count++] = &AudioDriverManager::dummy_driver;
 }
 
 int AudioDriverManager::get_driver_count() {
@@ -180,16 +185,12 @@ void AudioDriverManager::initialize(int p_driver) {
 
 		if (drivers[i]->init() == OK) {
 			drivers[i]->set_singleton();
-			return;
+			break;
 		}
 	}
 
-	// Fallback to our dummy driver
-	if (dummy_driver.init() == OK) {
-		ERR_PRINT("AudioDriverManager: all drivers failed, falling back to dummy driver");
-		dummy_driver.set_singleton();
-	} else {
-		ERR_PRINT("AudioDriverManager: dummy driver failed to init()");
+	if (driver_count > 1 && AudioDriver::get_singleton()->get_name() == "Dummy") {
+		WARN_PRINT("All audio drivers failed, falling back to the dummy driver.");
 	}
 }
 
@@ -1284,11 +1285,11 @@ void AudioServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_mix_rate"), &AudioServer::get_mix_rate);
 	ClassDB::bind_method(D_METHOD("get_device_list"), &AudioServer::get_device_list);
 	ClassDB::bind_method(D_METHOD("get_device"), &AudioServer::get_device);
-	ClassDB::bind_method(D_METHOD("set_device"), &AudioServer::set_device);
+	ClassDB::bind_method(D_METHOD("set_device", "device"), &AudioServer::set_device);
 
 	ClassDB::bind_method(D_METHOD("capture_get_device_list"), &AudioServer::capture_get_device_list);
 	ClassDB::bind_method(D_METHOD("capture_get_device"), &AudioServer::capture_get_device);
-	ClassDB::bind_method(D_METHOD("capture_set_device"), &AudioServer::capture_set_device);
+	ClassDB::bind_method(D_METHOD("capture_set_device", "name"), &AudioServer::capture_set_device);
 
 	ClassDB::bind_method(D_METHOD("set_bus_layout", "bus_layout"), &AudioServer::set_bus_layout);
 	ClassDB::bind_method(D_METHOD("generate_bus_layout"), &AudioServer::generate_bus_layout);
