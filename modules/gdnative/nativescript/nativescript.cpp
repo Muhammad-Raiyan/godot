@@ -1370,6 +1370,54 @@ void NativeScriptLanguage::free_instance_binding_data(void *p_data) {
 	delete &binding_data;
 }
 
+void NativeScriptLanguage::refcount_incremented_instance_binding(Object *p_object) {
+
+	void *data = p_object->get_script_instance_binding(lang_idx);
+
+	if (!data)
+		return;
+
+	Vector<void *> &binding_data = *(Vector<void *> *)data;
+
+	for (int i = 0; i < binding_data.size(); i++) {
+		if (!binding_data[i])
+			continue;
+
+		if (!binding_functions[i].first)
+			continue;
+
+		if (binding_functions[i].second.refcount_incremented_instance_binding) {
+			binding_functions[i].second.refcount_incremented_instance_binding(binding_data[i], p_object);
+		}
+	}
+}
+
+bool NativeScriptLanguage::refcount_decremented_instance_binding(Object *p_object) {
+
+	void *data = p_object->get_script_instance_binding(lang_idx);
+
+	if (!data)
+		return true;
+
+	Vector<void *> &binding_data = *(Vector<void *> *)data;
+
+	bool can_die = true;
+
+	for (int i = 0; i < binding_data.size(); i++) {
+		if (!binding_data[i])
+			continue;
+
+		if (!binding_functions[i].first)
+			continue;
+
+		if (binding_functions[i].second.refcount_decremented_instance_binding) {
+			can_die = can_die && binding_functions[i].second.refcount_decremented_instance_binding(binding_data[i], p_object);
+		}
+	}
+
+	return can_die;
+}
+
 void NativeScriptLanguage::set_global_type_tag(int p_idx, StringName p_class_name, const void *p_type_tag) {
 	if (!global_type_tags.has(p_idx)) {
 		global_type_tags.insert(p_idx, HashMap<StringName, const void *>());
@@ -1537,12 +1585,16 @@ bool NativeScriptLanguage::handles_global_class_type(const String &p_type) const
 String NativeScriptLanguage::get_global_class_name(const String &p_path, String *r_base_type, String *r_icon_path) const {
 	Ref<NativeScript> script = ResourceLoader::load(p_path, "NativeScript");
 	if (script.is_valid()) {
-		*r_base_type = script->get_instance_base_type();
-		*r_icon_path = script->get_script_class_icon_path();
+		if (r_base_type)
+			*r_base_type = script->get_instance_base_type();
+		if (r_icon_path)
+			*r_icon_path = script->get_script_class_icon_path();
 		return script->get_script_class_name();
 	}
-	*r_base_type = String();
-	*r_icon_path = String();
+	if (r_base_type)
+		*r_base_type = String();
+	if (r_icon_path)
+		*r_icon_path = String();
 	return String();
 }
 

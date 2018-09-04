@@ -42,6 +42,7 @@
 #include "scene/2d/canvas_modulate.h"
 #include "scene/2d/collision_polygon_2d.h"
 #include "scene/2d/collision_shape_2d.h"
+#include "scene/2d/cpu_particles_2d.h"
 #include "scene/2d/joints_2d.h"
 #include "scene/2d/light_2d.h"
 #include "scene/2d/light_occluder_2d.h"
@@ -143,6 +144,7 @@
 #include "scene/resources/mesh_data_tool.h"
 #include "scene/resources/mesh_library.h"
 #include "scene/resources/packed_scene.h"
+#include "scene/resources/particles_material.h"
 #include "scene/resources/plane_shape.h"
 #include "scene/resources/polygon_path_finder.h"
 #include "scene/resources/primitive_meshes.h"
@@ -164,8 +166,6 @@
 #include "scene/resources/world_2d.h"
 #include "scene/scene_string_names.h"
 
-#include "scene/3d/cpu_particles.h"
-#include "scene/3d/particles.h"
 #include "scene/3d/scenario_fx.h"
 #include "scene/3d/spatial.h"
 
@@ -178,6 +178,7 @@
 #include "scene/3d/camera.h"
 #include "scene/3d/collision_polygon.h"
 #include "scene/3d/collision_shape.h"
+#include "scene/3d/cpu_particles.h"
 #include "scene/3d/gi_probe.h"
 #include "scene/3d/immediate_geometry.h"
 #include "scene/3d/interpolated_camera.h"
@@ -187,6 +188,7 @@
 #include "scene/3d/multimesh_instance.h"
 #include "scene/3d/navigation.h"
 #include "scene/3d/navigation_mesh.h"
+#include "scene/3d/particles.h"
 #include "scene/3d/path.h"
 #include "scene/3d/physics_body.h"
 #include "scene/3d/physics_joint.h"
@@ -514,6 +516,7 @@ void register_scene_types() {
 	SceneTree::add_idle_callback(CanvasItemMaterial::flush_changes);
 	CanvasItemMaterial::init_shaders();
 	ClassDB::register_class<Node2D>();
+	ClassDB::register_class<CPUParticles2D>();
 	ClassDB::register_class<Particles2D>();
 	//ClassDB::register_class<ParticleAttractor2D>();
 	ClassDB::register_class<Sprite>();

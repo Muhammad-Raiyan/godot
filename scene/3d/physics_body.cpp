@@ -40,17 +40,6 @@
 #endif
 
 void PhysicsBody::_notification(int p_what) {
-
-	/*
-	switch(p_what) {
-
-		case NOTIFICATION_TRANSFORM_CHANGED: {
-
-			PhysicsServer::get_singleton()->body_set_state(get_rid(),PhysicsServer::BODY_STATE_TRANSFORM,get_global_transform());
-
-		} break;
-	}
-	*/
 }
 
 Vector3 PhysicsBody::get_linear_velocity() const {
@@ -182,7 +171,11 @@ PhysicsBody::PhysicsBody(PhysicsServer::BodyMode p_mode) :
 #ifndef DISABLE_DEPRECATED
 void StaticBody::set_friction(real_t p_friction) {
 
-	ERR_EXPLAIN("The method set_friction has been deprecated and will be removed in the future, use physical material")
+	if (p_friction == 1.0) { // default value, don't create an override for that
+		return;
+	}
+
+	ERR_EXPLAIN("The method set_friction has been deprecated and will be removed in the future, use physics material instead.")
 	WARN_DEPRECATED
 
 	ERR_FAIL_COND(p_friction < 0 || p_friction > 1);
@@ -191,13 +184,12 @@ void StaticBody::set_friction(real_t p_friction) {
 		physics_material_override.instance();
 		set_physics_material_override(physics_material_override);
 	}
-
 	physics_material_override->set_friction(p_friction);
 }
 
 real_t StaticBody::get_friction() const {
 
-	ERR_EXPLAIN("The method get_friction has been deprecated and will be removed in the future, use physical material")
+	ERR_EXPLAIN("The method get_friction has been deprecated and will be removed in the future, use physics material instead.")
 	WARN_DEPRECATED
 
 	if (physics_material_override.is_null()) {
@@ -209,7 +201,11 @@ real_t StaticBody::get_friction() const {
 
 void StaticBody::set_bounce(real_t p_bounce) {
 
-	ERR_EXPLAIN("The method set_bounce has been deprecated and will be removed in the future, use physical material")
+	if (p_bounce == 0.0) { // default value, don't create an override for that
+		return;
+	}
+
+	ERR_EXPLAIN("The method set_bounce has been deprecated and will be removed in the future, use physics material instead.")
 	WARN_DEPRECATED
 
 	ERR_FAIL_COND(p_bounce < 0 || p_bounce > 1);
@@ -223,7 +219,7 @@ void StaticBody::set_bounce(real_t p_bounce) {
 
 real_t StaticBody::get_bounce() const {
 
-	ERR_EXPLAIN("The method get_bounce has been deprecated and will be removed in the future, use physical material")
+	ERR_EXPLAIN("The method get_bounce has been deprecated and will be removed in the future, use physics material instead.")
 	WARN_DEPRECATED
 
 	if (physics_material_override.is_null()) {
@@ -297,10 +293,10 @@ void StaticBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_collision_exception_with", "body"), &PhysicsBody::remove_collision_exception_with);
 
 #ifndef DISABLE_DEPRECATED
-	ADD_PROPERTY(PropertyInfo(Variant::REAL, "friction", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_friction", "get_friction");
-	ADD_PROPERTY(PropertyInfo(Variant::REAL, "bounce", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_bounce", "get_bounce");
+	ADD_PROPERTYNO(PropertyInfo(Variant::REAL, "friction", PROPERTY_HINT_RANGE, "0,1,0.01", 0), "set_friction", "get_friction");
+	ADD_PROPERTYNZ(PropertyInfo(Variant::REAL, "bounce", PROPERTY_HINT_RANGE, "0,1,0.01", 0), "set_bounce", "get_bounce");
 #endif // DISABLE_DEPRECATED
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material_override", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material_override", "get_physics_material_override");
+	ADD_PROPERTYNZ(PropertyInfo(Variant::OBJECT, "physics_material_override", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material_override", "get_physics_material_override");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "constant_linear_velocity"), "set_constant_linear_velocity", "get_constant_linear_velocity");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "constant_angular_velocity"), "set_constant_angular_velocity", "get_constant_angular_velocity");
 }
@@ -419,7 +415,7 @@ void RigidBody::_body_inout(int p_status, ObjectID p_instance, int p_body_shape,
 				node->disconnect(SceneStringNames::get_singleton()->tree_entered, this, SceneStringNames::get_singleton()->_body_enter_tree);
 				node->disconnect(SceneStringNames::get_singleton()->tree_exiting, this, SceneStringNames::get_singleton()->_body_exit_tree);
 				if (in_tree)
-					emit_signal(SceneStringNames::get_singleton()->body_exited, obj);
+					emit_signal(SceneStringNames::get_singleton()->body_exited, node);
 			}
 
 			contact_monitor->body_map.erase(E);
@@ -618,8 +614,13 @@ real_t RigidBody::get_weight() const {
 #ifndef DISABLE_DEPRECATED
 void RigidBody::set_friction(real_t p_friction) {
 
-	ERR_EXPLAIN("The method set_friction has been deprecated and will be removed in the future, use physical material")
+	if (p_friction == 1.0) { // default value, don't create an override for that
+		return;
+	}
+
+	ERR_EXPLAIN("The method set_friction has been deprecated and will be removed in the future, use physics material instead.")
 	WARN_DEPRECATED
+
 	ERR_FAIL_COND(p_friction < 0 || p_friction > 1);
 
 	if (physics_material_override.is_null()) {
@@ -630,8 +631,9 @@ void RigidBody::set_friction(real_t p_friction) {
 }
 real_t RigidBody::get_friction() const {
 
-	ERR_EXPLAIN("The method get_friction has been deprecated and will be removed in the future, use physical material")
+	ERR_EXPLAIN("The method get_friction has been deprecated and will be removed in the future, use physics material instead.")
 	WARN_DEPRECATED
+
 	if (physics_material_override.is_null()) {
 		return 1;
 	}
@@ -640,8 +642,14 @@ real_t RigidBody::get_friction() const {
 }
 
 void RigidBody::set_bounce(real_t p_bounce) {
-	ERR_EXPLAIN("The method set_bounce has been deprecated and will be removed in the future, use physical material")
+
+	if (p_bounce == 0.0) { // default value, don't create an override for that
+		return;
+	}
+
+	ERR_EXPLAIN("The method set_bounce has been deprecated and will be removed in the future, use physics material instead.")
 	WARN_DEPRECATED
+
 	ERR_FAIL_COND(p_bounce < 0 || p_bounce > 1);
 
 	if (physics_material_override.is_null()) {
@@ -651,7 +659,7 @@ void RigidBody::set_bounce(real_t p_bounce) {
 	physics_material_override->set_bounce(p_bounce);
 }
 real_t RigidBody::get_bounce() const {
-	ERR_EXPLAIN("The method get_bounce has been deprecated and will be removed in the future, use physical material")
+	ERR_EXPLAIN("The method get_bounce has been deprecated and will be removed in the future, use physics material instead.")
 	WARN_DEPRECATED
 	if (physics_material_override.is_null()) {
 		return 0;
@@ -998,10 +1006,10 @@ void RigidBody::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "mass", PROPERTY_HINT_EXP_RANGE, "0.01,65535,0.01"), "set_mass", "get_mass");
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "weight", PROPERTY_HINT_EXP_RANGE, "0.01,65535,0.01", PROPERTY_USAGE_EDITOR), "set_weight", "get_weight");
 #ifndef DISABLE_DEPRECATED
-	ADD_PROPERTY(PropertyInfo(Variant::REAL, "friction", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_friction", "get_friction");
-	ADD_PROPERTY(PropertyInfo(Variant::REAL, "bounce", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_bounce", "get_bounce");
+	ADD_PROPERTYNO(PropertyInfo(Variant::REAL, "friction", PROPERTY_HINT_RANGE, "0,1,0.01", 0), "set_friction", "get_friction");
+	ADD_PROPERTYNZ(PropertyInfo(Variant::REAL, "bounce", PROPERTY_HINT_RANGE, "0,1,0.01", 0), "set_bounce", "get_bounce");
 #endif // DISABLE_DEPRECATED
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material_override", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material_override", "get_physics_material_override");
+	ADD_PROPERTYNZ(PropertyInfo(Variant::OBJECT, "physics_material_override", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material_override", "get_physics_material_override");
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "gravity_scale", PROPERTY_HINT_RANGE, "-128,128,0.01"), "set_gravity_scale", "get_gravity_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "custom_integrator"), "set_use_custom_integrator", "is_using_custom_integrator");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "continuous_cd"), "set_use_continuous_collision_detection", "is_using_continuous_collision_detection");
@@ -1023,10 +1031,10 @@ void RigidBody::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "angular_velocity"), "set_angular_velocity", "get_angular_velocity");
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "angular_damp", PROPERTY_HINT_RANGE, "-1,128,0.01"), "set_angular_damp", "get_angular_damp");
 
-	ADD_SIGNAL(MethodInfo("body_shape_entered", PropertyInfo(Variant::INT, "body_id"), PropertyInfo(Variant::OBJECT, "body"), PropertyInfo(Variant::INT, "body_shape"), PropertyInfo(Variant::INT, "local_shape")));
-	ADD_SIGNAL(MethodInfo("body_shape_exited", PropertyInfo(Variant::INT, "body_id"), PropertyInfo(Variant::OBJECT, "body"), PropertyInfo(Variant::INT, "body_shape"), PropertyInfo(Variant::INT, "local_shape")));
-	ADD_SIGNAL(MethodInfo("body_entered", PropertyInfo(Variant::OBJECT, "body")));
-	ADD_SIGNAL(MethodInfo("body_exited", PropertyInfo(Variant::OBJECT, "body")));
+	ADD_SIGNAL(MethodInfo("body_shape_entered", PropertyInfo(Variant::INT, "body_id"), PropertyInfo(Variant::OBJECT, "body", PROPERTY_HINT_RESOURCE_TYPE, "Node"), PropertyInfo(Variant::INT, "body_shape"), PropertyInfo(Variant::INT, "local_shape")));
+	ADD_SIGNAL(MethodInfo("body_shape_exited", PropertyInfo(Variant::INT, "body_id"), PropertyInfo(Variant::OBJECT, "body", PROPERTY_HINT_RESOURCE_TYPE, "Node"), PropertyInfo(Variant::INT, "body_shape"), PropertyInfo(Variant::INT, "local_shape")));
+	ADD_SIGNAL(MethodInfo("body_entered", PropertyInfo(Variant::OBJECT, "body", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
+	ADD_SIGNAL(MethodInfo("body_exited", PropertyInfo(Variant::OBJECT, "body", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
 	ADD_SIGNAL(MethodInfo("sleeping_state_changed"));
 
 	BIND_ENUM_CONSTANT(MODE_RIGID);

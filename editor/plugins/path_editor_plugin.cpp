@@ -30,7 +30,7 @@
 
 #include "path_editor_plugin.h"
 
-#include "os/keyboard.h"
+#include "core/os/keyboard.h"
 #include "scene/resources/curve.h"
 #include "spatial_editor_plugin.h"
 
@@ -57,7 +57,7 @@ String PathSpatialGizmo::get_handle_name(int p_idx) const {
 
 	return n;
 }
-Variant PathSpatialGizmo::get_handle_value(int p_idx) const {
+Variant PathSpatialGizmo::get_handle_value(int p_idx) {
 
 	Ref<Curve3D> c = path->get_curve();
 	if (c.is_null())

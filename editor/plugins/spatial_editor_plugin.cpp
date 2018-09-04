@@ -30,23 +30,25 @@
 
 #include "spatial_editor_plugin.h"
 
-#include "camera_matrix.h"
+#include "core/math/camera_matrix.h"
 #include "core/os/input.h"
-
+#include "core/os/keyboard.h"
+#include "core/print_string.h"
+#include "core/project_settings.h"
+#include "core/sort.h"
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/plugins/animation_player_editor_plugin.h"
 #include "editor/plugins/script_editor_plugin.h"
 #include "editor/script_editor_debugger.h"
 #include "editor/spatial_editor_gizmos.h"
-#include "os/keyboard.h"
-#include "print_string.h"
-#include "project_settings.h"
 #include "scene/3d/camera.h"
+#include "scene/3d/collision_shape.h"
+#include "scene/3d/mesh_instance.h"
+#include "scene/3d/physics_body.h"
 #include "scene/3d/visual_instance.h"
 #include "scene/resources/packed_scene.h"
 #include "scene/resources/surface_tool.h"
-#include "sort.h"
 
 #define DISTANCE_DEFAULT 4
 
@@ -307,7 +309,7 @@ ObjectID SpatialEditorViewport::_select_ray(const Point2 &p_pos, bool p_append, 
 
 	Node *edited_scene = get_tree()->get_edited_scene_root();
 	ObjectID closest = 0;
-	Spatial *item = NULL;
+	Node *item = NULL;
 	float closest_dist = 1e20;
 	int selected_handle = -1;
 
@@ -341,19 +343,16 @@ ObjectID SpatialEditorViewport::_select_ray(const Point2 &p_pos, bool p_append, 
 
 		if (dist < closest_dist) {
 			//make sure that whathever is selected is editable
-			while (spat && spat != edited_scene && spat->get_owner() != edited_scene && !edited_scene->is_editable_instance(spat->get_owner())) {
-
-				spat = Object::cast_to<Spatial>(spat->get_owner());
-			}
-
-			if (spat) {
-				item = spat;
-				closest = spat->get_instance_id();
-				closest_dist = dist;
-				selected_handle = handle;
+			Node *owner = spat->get_owner();
+			if (owner != edited_scene && !edited_scene->is_editable_instance(owner)) {
+				item = owner;
 			} else {
-				ERR_PRINT("Bug?");
+				item = Object::cast_to<Node>(spat);
 			}
+
+			closest = item->get_instance_id();
+			closest_dist = dist;
+			selected_handle = handle;
 		}
 	}
 
@@ -4468,6 +4467,7 @@ void SpatialEditor::_init_indicators() {
 
 		VisualServer::get_singleton()->instance_geometry_set_cast_shadows_setting(origin_instance, VS::SHADOW_CASTING_SETTING_OFF);
 
+		origin_enabled = true;
 		grid_enabled = true;
 		last_grid_snap = 1;
 	}
@@ -5381,7 +5381,6 @@ SpatialEditor::SpatialEditor(EditorNode *p_editor) {
 	ED_SHORTCUT("spatial_editor/tool_move", TTR("Tool Move"), KEY_W);
 	ED_SHORTCUT("spatial_editor/tool_rotate", TTR("Tool Rotate"), KEY_E);
 	ED_SHORTCUT("spatial_editor/tool_scale", TTR("Tool Scale"), KEY_R);
-	ED_SHORTCUT("spatial_editor/snap_to_floor", TTR("Snap To Floor"), KEY_PAGEDOWN);
 
 	ED_SHORTCUT("spatial_editor/freelook_toggle", TTR("Toggle Freelook"), KEY_MASK_SHIFT + KEY_F);
 
@@ -5392,7 +5391,7 @@ SpatialEditor::SpatialEditor(EditorNode *p_editor) {
 	hbc_menu->add_child(transform_menu);
 
 	p = transform_menu->get_popup();
-	p->add_shortcut(ED_SHORTCUT("spatial_editor/snap_to_floor", TTR("Snap object to floor")), MENU_SNAP_TO_FLOOR);
+	p->add_shortcut(ED_SHORTCUT("spatial_editor/snap_to_floor", TTR("Snap object to floor"), KEY_PAGEDOWN), MENU_SNAP_TO_FLOOR);
 	p->add_shortcut(ED_SHORTCUT("spatial_editor/configure_snap", TTR("Configure Snap...")), MENU_TRANSFORM_CONFIGURE_SNAP);
 	p->add_separator();
 	p->add_shortcut(ED_SHORTCUT("spatial_editor/transform_dialog", TTR("Transform Dialog...")), MENU_TRANSFORM_DIALOG);
