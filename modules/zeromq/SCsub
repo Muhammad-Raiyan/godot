@@ -1,7 +1,7 @@
 # SCsub
 Import('env')
 
-cppzmq_location = "C:/Users/mrislam/Documents/Programming/cppzmq"
+cppzmq_location = "C:/Users/raiya/OneDrive/Documents/cppzmq"
 env.Append(CPPPATH=cppzmq_location)
 env.Append(CPPPATH=cppzmq_location+"/libzmq-4.2.5/include")
 env.Append(LIBS=["libzmq-v141-mt-gd-4_2_5.lib"])

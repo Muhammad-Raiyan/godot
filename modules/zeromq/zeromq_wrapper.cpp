@@ -55,7 +55,7 @@ String Zeromq_wrapper::searchRequest(String data_to_search) {
 	return data.c_str();
 }
 
-String Zeromq_wrapper::publish(String envelope, String data) {
+void Zeromq_wrapper::publish(String envelope, String data) {
 
 	// Convert String to std::string
 	const char *jsonCharPtr = String_to_charPtr(data);
@@ -67,17 +67,32 @@ String Zeromq_wrapper::publish(String envelope, String data) {
 	// Start Broadcast
 	s_sendmore(publisher, envlpString);
 	s_send(publisher, jsonString);
-	Sleep(1); //  Give 0MQ time to flush output
-	std::string res_envelope = s_recv(subscriber);
-	std::string res_data = s_recv(subscriber);
+	//Sleep(1); //  Give 0MQ time to flush output
+	//std::string res_envelope = s_recv(subscriber);
+	//std::string res_data = s_recv(subscriber);
 
-	// std::cout << data << std::endl;
-	return res_data.c_str();
+	//// std::cout << data << std::endl;
+	//return res_data.c_str();
+}
+
+String Zeromq_wrapper::receive() {
+	//std::string res_envelope = s2_recv(subscriber);
+	std::string res_data = s2_recv(subscriber);
+	if (res_data.empty()) {
+		return "";
+	} else {
+		if (res_data == "gui_backed")
+			res_data = s2_recv(subscriber);
+		//std::cout << res_data << std::endl;
+		return res_data.c_str();
+	}
+		
 }
 
 void Zeromq_wrapper::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("searchRequest", "data_to_search"), &Zeromq_wrapper::searchRequest);
 	ClassDB::bind_method(D_METHOD("publish", "envelope", "data"), &Zeromq_wrapper::publish);
+	ClassDB::bind_method(D_METHOD("receive"), &Zeromq_wrapper::receive);
 }
 
 Zeromq_wrapper::Zeromq_wrapper() {

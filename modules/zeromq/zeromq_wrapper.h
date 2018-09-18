@@ -32,7 +32,8 @@ public:
 	void setGuiPubPort(int port);
 
 	String searchRequest(String data_to_search);
-	String publish(String envelope, String data);
+	void publish(String envelope, String data);
+	String receive();
 };
 
 #endif
