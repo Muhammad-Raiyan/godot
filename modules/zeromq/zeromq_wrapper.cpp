@@ -9,6 +9,7 @@ socket_t syncclient(context, ZMQ_REQ);
 
 socket_t publisher(context, ZMQ_PUB);
 socket_t subscriber(context, ZMQ_SUB);
+socket_t render(context, ZMQ_SUB);
 
 int sndhwm = 0;
 
@@ -36,27 +37,7 @@ void Zeromq_wrapper::setGuiPubPort(int port) {
 	std::cout << guiPubPort << std::endl;
 }
 
-// TODO: REMOVE this function
-String Zeromq_wrapper::searchRequest(String data_to_search) {
-
-	// Convert String to std::string
-	const char *jsonCharPtr = String_to_charPtr(data_to_search);
-	std::string jsonString(jsonCharPtr);
-	std::cout << "Data to search: "  << jsonString << std::endl;
-
-	// Start Broadcast
-	s_sendmore(publisher, "network_backend");
-	s_send(publisher,  jsonString);
-	Sleep(1); //  Give 0MQ time to flush output
-	std::string envelope = s_recv(subscriber);
-	std::string data = s_recv(subscriber);
-	
-	// std::cout << data << std::endl;
-	return data.c_str();
-}
-
 void Zeromq_wrapper::publish(String envelope, String data) {
-
 	// Convert String to std::string
 	const char *jsonCharPtr = String_to_charPtr(data);
 	const char *envlpCharPtr = String_to_charPtr(envelope);
@@ -67,12 +48,6 @@ void Zeromq_wrapper::publish(String envelope, String data) {
 	// Start Broadcast
 	s_sendmore(publisher, envlpString);
 	s_send(publisher, jsonString);
-	//Sleep(1); //  Give 0MQ time to flush output
-	//std::string res_envelope = s_recv(subscriber);
-	//std::string res_data = s_recv(subscriber);
-
-	//// std::cout << data << std::endl;
-	//return res_data.c_str();
 }
 
 String Zeromq_wrapper::receive() {
@@ -81,33 +56,48 @@ String Zeromq_wrapper::receive() {
 	if (res_data.empty()) {
 		return "";
 	} else {
-		if (res_data == "gui_backed")
-			res_data = s2_recv(subscriber);
+		res_data = s2_recv(subscriber);
 		//std::cout << res_data << std::endl;
 		return res_data.c_str();
+	}	
+}
+
+String Zeromq_wrapper::render_call() {
+	//std::string res_envelope = s2_recv(subscriber);
+	std::string res_data = s2_recv(render);
+	if (res_data.empty()) {
+		return "";
+	} else {
+		res_data = s2_recv(render);
+		return res_data.c_str();
 	}
-		
 }
 
 void Zeromq_wrapper::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("searchRequest", "data_to_search"), &Zeromq_wrapper::searchRequest);
 	ClassDB::bind_method(D_METHOD("publish", "envelope", "data"), &Zeromq_wrapper::publish);
 	ClassDB::bind_method(D_METHOD("receive"), &Zeromq_wrapper::receive);
+	ClassDB::bind_method(D_METHOD("render_call"), &Zeromq_wrapper::render_call);
 }
 
 Zeromq_wrapper::Zeromq_wrapper() {
 	guiPubPort = 5101;
 	networkSubPort = 6101;
+	renderSubPort = 7101;
 
 	publisher.setsockopt(ZMQ_SNDHWM, &sndhwm, sizeof(sndhwm));
 	publisher.bind("tcp://*:" + std::to_string(guiPubPort));
 
 	subscriber.connect("tcp://localhost:" + std::to_string(networkSubPort));
 	subscriber.setsockopt(ZMQ_SUBSCRIBE, "gui_backend", std::strlen("gui_backend"));
+
+	render.connect("tcp://localhost:" + std::to_string(networkSubPort));
+	render.setsockopt(ZMQ_SUBSCRIBE, "gui_backend", std::strlen("gui_backend"));
+
 	std::cout << "pub-sub sockets initialized" << std::endl;
 
 	synchronize_publisher(5100);
 	synchronize_subscription(6100);
+	synchronize_subscription(7100);
 }
 
 Zeromq_wrapper::Zeromq_wrapper(int guiPort, int guiSyncPort, int networkPort, int networkSyncPort) {
@@ -140,7 +130,8 @@ Zeromq_wrapper::~Zeromq_wrapper() {
 	syncservice.close();
 	publisher.close();
 	subscriber.close();
-	
+	render.close();
+
 	context.close();
 }
 
@@ -151,7 +142,7 @@ void Zeromq_wrapper::synchronize_publisher(int syncPort) {
 
 	//  Get synchronization from subscribers
 	int subscribers = 0;
-	while (subscribers < 1) {
+	while (subscribers < SUBSCRIBERS_EXPECTED) {
 
 		//  - wait for a sub to start
 		s_recv(syncservice);

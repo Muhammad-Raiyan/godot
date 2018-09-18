@@ -14,6 +14,8 @@ class Zeromq_wrapper : public Reference {
 
 	int guiPubPort;
 	int networkSubPort;
+	int renderSubPort;
+
 	int tabId;
 	void synchronize_publisher(int syncPort);
 	void synchronize_subscription(int syncPort);
@@ -31,9 +33,9 @@ public:
 	int getGuiPubPort();
 	void setGuiPubPort(int port);
 
-	String searchRequest(String data_to_search);
 	void publish(String envelope, String data);
 	String receive();
+	String render_call();
 };
 
 #endif
