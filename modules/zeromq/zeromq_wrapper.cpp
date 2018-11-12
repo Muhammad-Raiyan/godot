@@ -19,23 +19,23 @@ char *String_to_charPtr(String str) {
 	return ptr;
 }
 
-int Zeromq_wrapper::getNetworkSubPort() {
-	return networkSubPort;
-}
-
-void Zeromq_wrapper::setNetworkSubPort(int port) {
-	networkSubPort = port;
-	std::cout << networkSubPort << std::endl;
-}
-
-int Zeromq_wrapper::getGuiPubPort() {
-	return guiPubPort;
-}
-
-void Zeromq_wrapper::setGuiPubPort(int port) {
-	guiPubPort = port;
-	std::cout << guiPubPort << std::endl;
-}
+//int Zeromq_wrapper::getNetworkSubPort() {
+//	return networkSubPort;
+//}
+//
+//void Zeromq_wrapper::setNetworkSubPort(int port) {
+//	networkSubPort = port;
+//	std::cout << networkSubPort << std::endl;
+//}
+//
+//int Zeromq_wrapper::getGuiPubPort() {
+//	return guiPubPort;
+//}
+//
+//void Zeromq_wrapper::setGuiPubPort(int port) {
+//	guiPubPort = port;
+//	std::cout << guiPubPort << std::endl;
+//}
 
 void Zeromq_wrapper::publish(String envelope, String data) {
 	// Convert String to std::string
@@ -97,27 +97,27 @@ Zeromq_wrapper::Zeromq_wrapper() {
 
 	synchronize_publisher(5100);
 	synchronize_subscription(6100);
-	synchronize_subscription(7100);
+	//synchronize_subscription(7100);
 }
 
-Zeromq_wrapper::Zeromq_wrapper(int guiPort, int guiSyncPort, int networkPort, int networkSyncPort) {
-	guiPubPort = guiPort;
-	networkSubPort = networkPort;
-
-	std::cout << "guiPubPort: " << guiPubPort;
-	std::cout << " networkSubPort: " << networkSubPort << std::endl;
-	std::cout << "guiSyncPort: " << guiSyncPort;
-	std::cout << " networkSyncPort: " << networkSyncPort << std::endl;
-
-	publisher.setsockopt(ZMQ_SNDHWM, &sndhwm, sizeof(sndhwm));
-	publisher.bind("tcp://*:" + std::to_string(guiPubPort));
-
-	subscriber.connect("tcp://*:" + std::to_string(networkSubPort));
-	subscriber.setsockopt(ZMQ_SUBSCRIBE, "gui_backend");
-
-	synchronize_publisher(guiSyncPort);
-	synchronize_subscription(networkSyncPort);
-}
+//Zeromq_wrapper::Zeromq_wrapper(int guiPort, int guiSyncPort, int networkPort, int networkSyncPort) {
+//	guiPubPort = guiPort;
+//	networkSubPort = networkPort;
+//
+//	std::cout << "guiPubPort: " << guiPubPort;
+//	std::cout << " networkSubPort: " << networkSubPort << std::endl;
+//	std::cout << "guiSyncPort: " << guiSyncPort;
+//	std::cout << " networkSyncPort: " << networkSyncPort << std::endl;
+//
+//	publisher.setsockopt(ZMQ_SNDHWM, &sndhwm, sizeof(sndhwm));
+//	publisher.bind("tcp://*:" + std::to_string(guiPubPort));
+//
+//	subscriber.connect("tcp://*:" + std::to_string(networkSubPort));
+//	subscriber.setsockopt(ZMQ_SUBSCRIBE, "gui_backend");
+//
+//	synchronize_publisher(guiSyncPort);
+//	synchronize_subscription(networkSyncPort);
+//}
 
 Zeromq_wrapper::~Zeromq_wrapper() {
 	std::cout << "destructor call";
